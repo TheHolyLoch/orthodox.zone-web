@@ -60,93 +60,12 @@ function isObject(value) {
 	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function hasContent(value) {
-	if (Array.isArray(value)) {
-		return value.length > 0;
-	}
-
-	if (isObject(value)) {
-		return Object.keys(value).length > 0;
-	}
-
+function hasText(value) {
 	return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
-function titleCaseKey(key) {
-	return key
-		.replace(/[_-]+/g, ' ')
-		.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function findFirstValue(source, keys) {
-	if (!isObject(source) && !Array.isArray(source)) {
-		return null;
-	}
-
-	if (isObject(source)) {
-		for (const key of keys) {
-			if (hasContent(source[key])) {
-				return source[key];
-			}
-		}
-
-		for (const value of Object.values(source)) {
-			const found = findFirstValue(value, keys);
-			if (hasContent(found)) {
-				return found;
-			}
-		}
-	}
-
-	if (Array.isArray(source)) {
-		for (const value of source) {
-			const found = findFirstValue(value, keys);
-			if (hasContent(found)) {
-				return found;
-			}
-		}
-	}
-
-	return null;
-}
-
-function normaliseDay(data, dateValue) {
-	return {
-		date: findFirstValue(data, ['gregorian_date', 'gregorianDate', 'date', 'iso_date']) || dateValue,
-		julianDate: findFirstValue(data, ['julian_date', 'julianDate', 'orthodox_date', 'orthodoxDate']),
-		dayName: findFirstValue(data, ['day_name', 'dayName', 'weekday']),
-		tone: findFirstValue(data, ['tone']),
-		fasting: findFirstValue(data, ['fasting_note', 'fastingNote', 'fasting_rule', 'fastingRule', 'fasting', 'fast_level', 'fastLevel']),
-		summary: findFirstValue(data, ['summary', 'title', 'description', 'event_summary', 'eventSummary']),
-		feasts: findFirstValue(data, ['feasts', 'events', 'feast_days', 'feastDays']),
-		saints: findFirstValue(data, ['saints', 'commemorations', 'remembrances']),
-		readings: findFirstValue(data, ['readings', 'scripture_readings', 'scriptureReadings']),
-		hymns: findFirstValue(data, ['hymns']),
-		notes: findFirstValue(data, ['notes', 'note', 'details']),
-		raw: data
-	};
-}
-
-async function mergeSupplementalData(model, dateValue) {
-	const endpoints = [
-		['saints', `/saints/${dateValue}`],
-		['readings', `/readings/${dateValue}`],
-		['hymns', `/hymns/${dateValue}`]
-	];
-
-	for (const [key, path] of endpoints) {
-		if (hasContent(model[key])) {
-			continue;
-		}
-
-		try {
-			model[key] = await fetchJson(path);
-		} catch (error) {
-			console.warn(`Could not load ${key}`, error);
-		}
-	}
-
-	return model;
+function hasItems(value) {
+	return Array.isArray(value) && value.length > 0;
 }
 
 function clearNode(node) {
@@ -155,166 +74,318 @@ function clearNode(node) {
 	}
 }
 
-function appendText(parent, text) {
-	parent.appendChild(document.createTextNode(String(text)));
+function normaliseText(value) {
+	return hasText(value) ? String(value).trim() : '';
+}
+
+function sortByOrder(items, key) {
+	return [...items].sort((a, b) => {
+		const first = Number(a[key] || 0);
+		const second = Number(b[key] || 0);
+		return first - second;
+	});
+}
+
+function extractTone(headerText) {
+	const match = normaliseText(headerText).match(/\bTone\s+([^.]*)/i);
+	return match ? `Tone ${match[1].trim()}` : '';
 }
 
 function appendMeta(label, value) {
-	if (!hasContent(value)) {
+	const text = normaliseText(value);
+	if (!text) {
 		return;
 	}
 
 	const term = document.createElement('dt');
 	const detail = document.createElement('dd');
 	term.textContent = label;
-	detail.textContent = valueToText(value);
+	detail.textContent = text;
 	elements.meta.append(term, detail);
 }
 
-function valueToText(value) {
-	if (Array.isArray(value)) {
-		return value.map(valueToText).filter(Boolean).join(', ');
-	}
-
-	if (isObject(value)) {
-		const preferred = ['title', 'name', 'summary', 'text', 'reference', 'description'];
-		for (const key of preferred) {
-			if (hasContent(value[key])) {
-				return valueToText(value[key]);
-			}
-		}
-
-		return Object.entries(value)
-			.filter(([, entryValue]) => hasContent(entryValue))
-			.map(([key, entryValue]) => `${titleCaseKey(key)}: ${valueToText(entryValue)}`)
-			.join('; ');
-	}
-
-	return value === null || value === undefined ? '' : String(value);
-}
-
-function renderValue(parent, value) {
-	if (Array.isArray(value)) {
-		const list = document.createElement('ul');
-		list.className = 'calendar-list';
-
-		for (const item of value) {
-			const listItem = document.createElement('li');
-			renderValue(listItem, item);
-			list.appendChild(listItem);
-		}
-
-		parent.appendChild(list);
+function appendParagraph(parent, text) {
+	const value = normaliseText(text);
+	if (!value) {
 		return;
 	}
 
-	if (isObject(value)) {
-		const usefulKeys = ['title', 'name', 'summary', 'text', 'reference', 'source', 'type', 'rank', 'description'];
-		const list = document.createElement('dl');
-		list.className = 'calendar-list calendar-detail-list';
-		let rendered = false;
-
-		for (const key of usefulKeys) {
-			if (!hasContent(value[key])) {
-				continue;
-			}
-
-			const term = document.createElement('dt');
-			const detail = document.createElement('dd');
-			term.textContent = titleCaseKey(key);
-			detail.textContent = valueToText(value[key]);
-			list.append(term, detail);
-			rendered = true;
-		}
-
-		if (!rendered) {
-			for (const [key, entryValue] of Object.entries(value)) {
-				if (!hasContent(entryValue)) {
-					continue;
-				}
-
-				const term = document.createElement('dt');
-				const detail = document.createElement('dd');
-				term.textContent = titleCaseKey(key);
-				renderValue(detail, entryValue);
-				list.append(term, detail);
-				rendered = true;
-			}
-		}
-
-		if (rendered) {
-			parent.appendChild(list);
-		}
-		return;
-	}
-
-	appendText(parent, value);
+	const paragraph = document.createElement('p');
+	paragraph.textContent = value;
+	parent.appendChild(paragraph);
 }
 
-function createCard(title, value) {
-	if (!hasContent(value)) {
-		return null;
-	}
+function appendTag(parent, text) {
+	const tag = document.createElement('span');
+	tag.className = 'calendar-tag';
+	tag.textContent = text;
+	parent.appendChild(tag);
+}
 
+function createCard(title) {
 	const card = document.createElement('article');
 	const heading = document.createElement('h3');
 	const body = document.createElement('div');
 	card.className = 'calendar-card';
 	heading.className = 'calendar-card-title';
 	heading.textContent = title;
-	card.appendChild(heading);
-	renderValue(body, value);
-	card.appendChild(body);
+	card.append(heading, body);
+
+	return { card, body };
+}
+
+function appendStringList(parent, values) {
+	const filtered = values.map(normaliseText).filter(Boolean);
+	if (!filtered.length) {
+		return false;
+	}
+
+	const list = document.createElement('ul');
+	list.className = 'calendar-list';
+
+	for (const value of filtered) {
+		const item = document.createElement('li');
+		item.textContent = value;
+		list.appendChild(item);
+	}
+
+	parent.appendChild(list);
+	return true;
+}
+
+function eventText(event) {
+	if (!isObject(event)) {
+		return normaliseText(event);
+	}
+
+	return normaliseText(
+		event.title ||
+		event.name ||
+		event.summary ||
+		event.description ||
+		event.text
+	);
+}
+
+function renderEvents(title, dayText, eventArrays) {
+	const values = [];
+
+	if (hasText(dayText)) {
+		values.push(dayText);
+	}
+
+	for (const events of eventArrays) {
+		if (!hasItems(events)) {
+			continue;
+		}
+
+		for (const event of events) {
+			const text = eventText(event);
+			if (text) {
+				values.push(text);
+			}
+		}
+	}
+
+	if (!values.length) {
+		return null;
+	}
+
+	const { card, body } = createCard(title);
+	appendStringList(body, values);
+	return card;
+}
+
+function saintList(data) {
+	if (hasItems(data.saints)) {
+		return sortByOrder(data.saints, 'saint_order');
+	}
+
+	return sortByOrder([
+		...(data.primary_saints || []),
+		...(data.western_saints || [])
+	], 'saint_order');
+}
+
+function renderSaints(data) {
+	const saints = saintList(data);
+	if (!saints.length) {
+		return null;
+	}
+
+	const { card, body } = createCard('Saints and commemorations');
+	const list = document.createElement('ol');
+	list.className = 'calendar-list';
+
+	for (const saint of saints) {
+		if (!hasText(saint.name)) {
+			continue;
+		}
+
+		const item = document.createElement('li');
+		const name = document.createElement('span');
+		const tags = document.createElement('span');
+		name.textContent = saint.name;
+		tags.className = 'calendar-tags';
+		item.appendChild(name);
+
+		if (saint.is_primary) {
+			appendTag(tags, 'primary');
+		}
+
+		if (saint.is_western) {
+			appendTag(tags, 'western');
+			appendTag(tags, 'Britain and Ireland');
+		}
+
+		if (hasText(saint.service_rank_name)) {
+			appendTag(tags, saint.service_rank_name);
+		}
+
+		if (tags.children.length) {
+			item.appendChild(tags);
+		}
+
+		list.appendChild(item);
+	}
+
+	if (!list.children.length) {
+		return null;
+	}
+
+	body.appendChild(list);
+	return card;
+}
+
+function safeUrl(value) {
+	if (!hasText(value)) {
+		return '';
+	}
+
+	try {
+		const url = new URL(value);
+		return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+	} catch (error) {
+		return '';
+	}
+}
+
+function renderReadings(data) {
+	if (!hasItems(data.scripture_readings)) {
+		return null;
+	}
+
+	const readings = sortByOrder(data.scripture_readings, 'reading_order');
+	const { card, body } = createCard('Readings');
+	const list = document.createElement('ul');
+	list.className = 'calendar-list';
+
+	for (const reading of readings) {
+		const text = normaliseText(reading.display_text || reading.verse_reference);
+		if (!text) {
+			continue;
+		}
+
+		const item = document.createElement('li');
+		const url = safeUrl(reading.reading_url);
+
+		if (url) {
+			const link = document.createElement('a');
+			link.href = url;
+			link.rel = 'noopener noreferrer';
+			link.textContent = text;
+			item.appendChild(link);
+		} else {
+			item.textContent = text;
+		}
+
+		if (hasText(reading.description)) {
+			const description = document.createElement('span');
+			description.textContent = ` - ${reading.description}`;
+			item.appendChild(description);
+		}
+
+		list.appendChild(item);
+	}
+
+	if (!list.children.length) {
+		return null;
+	}
+
+	body.appendChild(list);
+	return card;
+}
+
+function renderFasting(day, data) {
+	const values = new Set();
+
+	if (hasText(day.fasting_rule)) {
+		values.add(normaliseText(day.fasting_rule));
+	}
+
+	if (hasText(day.fasting_level_name)) {
+		values.add(normaliseText(day.fasting_level_name));
+	}
+
+	if (hasText(day.fasting_level_description)) {
+		values.add(normaliseText(day.fasting_level_description));
+	}
+
+	return renderEvents('Fasting', [...values].join(' '), []);
+}
+
+function renderHymns(data) {
+	const hymns = data.hymns || data.hymn_count || data.hymnCount;
+	if (!hasItems(hymns) && !hasText(hymns)) {
+		return null;
+	}
+
+	const { card, body } = createCard('Hymns');
+
+	if (Array.isArray(hymns)) {
+		appendStringList(body, hymns.map(eventText));
+	} else {
+		appendParagraph(body, `${hymns} hymns available.`);
+	}
 
 	return card;
 }
 
-function renderRawFallback(raw) {
-	const card = document.createElement('article');
-	const heading = document.createElement('h3');
-	const pre = document.createElement('pre');
-	card.className = 'calendar-card';
-	heading.className = 'calendar-card-title';
-	heading.textContent = 'Notes / raw detail fallback';
-	pre.textContent = JSON.stringify(raw, null, 2);
-	card.append(heading, pre);
+function renderCalendar(data, dateValue) {
+	const day = isObject(data.day) ? data.day : {};
+	const title = normaliseText(day.dataheader) || normaliseText(day.gregorian_date) || dateValue;
+	const tone = normaliseText(day.tone) || extractTone(day.headerheader);
+	const fasting = normaliseText(day.fasting_rule || day.fasting_level_name);
+	const cards = [
+		renderEvents('Feasts and events', day.feasts, [data.feast_events, data.events]),
+		renderSaints(data),
+		renderReadings(data),
+		renderHymns(data),
+		renderFasting(day, data),
+		renderEvents('Remembrance', day.remembrances, [data.remembrance_events]),
+		renderEvents('Fasting season', day.fasts, [data.fast_events]),
+		renderEvents('Fast-free period', day.fast_free_periods, [data.fast_free_events])
+	].filter(Boolean);
 
-	return card;
-}
-
-function renderCalendar(model) {
 	clearNode(elements.meta);
 	clearNode(elements.sections);
 	elements.error.hidden = true;
-	elements.day.hidden = false;
 	elements.empty.hidden = true;
+	elements.day.hidden = false;
+	elements.dayTitle.textContent = title;
 
-	elements.dayTitle.textContent = valueToText(model.date) || 'Calendar day';
-	appendMeta('Gregorian date', model.date);
-	appendMeta('Orthodox / Julian date', model.julianDate);
-	appendMeta('Day name', model.dayName);
-	appendMeta('Tone', model.tone);
-	appendMeta('Fasting', model.fasting);
-	appendMeta('Summary', model.summary);
-
-	const cards = [
-		createCard('Feasts and events', model.feasts),
-		createCard('Saints and commemorations', model.saints),
-		createCard('Readings', model.readings),
-		createCard('Hymns', model.hymns),
-		createCard('Fasting', model.fasting),
-		createCard('Notes / raw detail fallback', model.notes)
-	].filter(Boolean);
-
-	if (cards.length === 0 && hasContent(model.raw)) {
-		cards.push(renderRawFallback(model.raw));
-	}
+	appendMeta('Gregorian date', day.gregorian_date);
+	appendMeta('Orthodox / Julian date', day.julian_date);
+	appendMeta('Day name', day.gregorian_weekday);
+	appendMeta('Tone', tone);
+	appendMeta('Fasting', fasting);
+	appendMeta('Summary', day.headerheader);
 
 	for (const card of cards) {
 		elements.sections.appendChild(card);
 	}
 
-	if (cards.length === 0 && elements.meta.children.length === 0) {
+	if (!cards.length && elements.meta.children.length === 0) {
 		elements.empty.hidden = false;
 	}
 }
@@ -335,9 +406,7 @@ async function loadDate(dateValue) {
 
 	try {
 		const data = await fetchJson(`/date/${dateValue}`);
-		const model = normaliseDay(data, dateValue);
-		await mergeSupplementalData(model, dateValue);
-		renderCalendar(model);
+		renderCalendar(data, dateValue);
 	} catch (error) {
 		elements.day.hidden = true;
 		clearNode(elements.sections);
@@ -350,7 +419,7 @@ async function loadDate(dateValue) {
 async function loadApiInfo() {
 	try {
 		const info = await fetchJson('/info');
-		const label = valueToText(info.version || info.name || info);
+		const label = normaliseText(info.version || info.name || info.title);
 		elements.apiStatus.textContent = label ? `Orthocal API available: ${label}` : 'Orthocal API available.';
 	} catch (error) {
 		elements.apiStatus.textContent = 'Orthocal API status unavailable.';
