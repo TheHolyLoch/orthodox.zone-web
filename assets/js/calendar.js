@@ -385,10 +385,10 @@ function renderCalendar(data, dateValue) {
 	elements.day.hidden = false;
 	elements.dayTitle.textContent = title;
 
-	appendMeta('Gregorian date', day.gregorian_date);
-	appendMeta('Orthodox / Julian date', day.julian_date);
-	appendMeta('Day name', day.gregorian_weekday);
-	appendMeta('Tone', tone);
+//	appendMeta('Gregorian date', day.gregorian_date);
+//	appendMeta('Orthodox / Julian date', day.julian_date);
+//	appendMeta('Day name', day.gregorian_weekday);
+//	appendMeta('Tone', tone);
 	appendMeta('Fasting', fasting);
 	appendMeta('Summary', day.headerheader);
 
