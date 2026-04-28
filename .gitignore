@@ -1,0 +1,8 @@
+# Orthodox Zone - Developed by dgm (dgm@tuta.com)
+# orthodox.zone-web/.gitignore
+
+.env
+logs/
+*.log
+.DS_Store
+AGENTS.md
