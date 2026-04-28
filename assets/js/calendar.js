@@ -197,14 +197,25 @@ function renderEvents(title, dayText, eventArrays) {
 }
 
 function saintList(data) {
-	if (hasItems(data.saints)) {
-		return sortByOrder(data.saints, 'saint_order');
-	}
+	const saints = hasItems(data.saints)
+		? data.saints
+		: [
+			...(data.primary_saints || []),
+			...(data.western_saints || [])
+		];
 
-	return sortByOrder([
-		...(data.primary_saints || []),
-		...(data.western_saints || [])
-	], 'saint_order');
+	return [...saints].sort((left, right) => {
+		const leftPriority = left.is_primary ? 0 : left.is_western ? 1 : 2;
+		const rightPriority = right.is_primary ? 0 : right.is_western ? 1 : 2;
+
+		if (leftPriority !== rightPriority) {
+			return leftPriority - rightPriority;
+		}
+
+		const leftOrder = Number(left.saint_order || 0);
+		const rightOrder = Number(right.saint_order || 0);
+		return leftOrder - rightOrder;
+	});
 }
 
 function renderSaints(data) {
