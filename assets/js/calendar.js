@@ -239,7 +239,7 @@ function renderSaints(data) {
 		}
 
 		if (hasText(saint.service_rank_name)) {
-			appendTag(tags, saint.service_rank_name);
+			// appendTag(tags, saint.service_rank_name);
 		}
 
 		if (tags.children.length) {
