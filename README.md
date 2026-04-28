@@ -2,13 +2,14 @@
 
 Orthodox Zone is a static public website for Orthodox Christian resources, project links, and plain educational material for Britain, Scotland, and the wider English-speaking world.
 
-The site is intentionally small: HTML, CSS, and a little vanilla JavaScript for the mobile menu. It does not use tracking scripts, external fonts, or a frontend framework.
+The site is intentionally small: HTML, CSS, and a little vanilla JavaScript for the mobile menu. It also holds a reusable visual system that can later be adapted for Orthodox Connect and Orthocal.
 
 ## Table of Contents
 
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Structure](#structure)
+- [Deployment](#deployment)
 - [Related Projects](#related-projects)
 - [Licence](#licence)
 
@@ -19,7 +20,7 @@ The site is intentionally small: HTML, CSS, and a little vanilla JavaScript for 
 
 ## Setup
 
-Open `index.html` directly, or serve the directory locally:
+Serve the directory locally:
 
 ```sh
 python3 -m http.server 8080
@@ -49,6 +50,49 @@ orthocal.html
 resources.html
 saints.html
 ```
+
+## Deployment
+
+The site can be served by nginx or any static host. On the current Debian server, the intended target is:
+
+```text
+/var/www/orthodox.zone/html
+```
+
+Clone the repository on the server:
+
+```sh
+git clone https://github.com/TheHolyLoch/orthodox.zone-web.git
+cd orthodox.zone-web
+```
+
+Check the source files, target directory, write access, and rsync availability:
+
+```sh
+./scripts/deploy.sh --check
+```
+
+Preview the copy operation:
+
+```sh
+./scripts/deploy.sh --dry-run
+```
+
+Deploy to the default target:
+
+```sh
+./scripts/deploy.sh
+```
+
+Deploy to a custom target:
+
+```sh
+DEPLOY_TARGET="/var/www/orthodox.zone/html" ./scripts/deploy.sh
+```
+
+The script does not use sudo. Run it as a user that can write to `/var/www/orthodox.zone/html`, or adjust ownership and permissions manually.
+
+The script does not reload nginx. Static file changes should be served automatically.
 
 ## Related Projects
 
