@@ -11,6 +11,7 @@ REQUIRED_FILES=(
 	"about.html"
 	"connect.html"
 	"orthocal.html"
+	"calendar.html"
 	"resources.html"
 	"saints.html"
 	"contact.html"
@@ -163,6 +164,8 @@ run_rsync() {
 
 	rm -rf "$staging_dir"
 	trap - EXIT
+
+	chown -R www-data:www-data /var/www/orthodox.zone/
 }
 
 run_cp_fallback() {

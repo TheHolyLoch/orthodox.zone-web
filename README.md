@@ -9,6 +9,7 @@ The site is intentionally small: HTML, CSS, and a little vanilla JavaScript for 
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Structure](#structure)
+- [Calendar page](#calendar-page)
 - [Deployment](#deployment)
 - [Related Projects](#related-projects)
 - [Licence](#licence)
@@ -39,10 +40,14 @@ assets/
 	css/
 		style.css
 	js/
+		calendar.js
 		main.js
 	img/
 		README.md
+docs/
+	nginx-orthocal-api.conf
 about.html
+calendar.html
 connect.html
 contact.html
 index.html
@@ -50,6 +55,31 @@ orthocal.html
 resources.html
 saints.html
 ```
+
+## Calendar page
+
+`calendar.html` uses the Orthocal JSON API. The frontend fetches `/orthocal-api/...` on the same origin, so nginx should proxy `/orthocal-api/` to Orthocal's local server.
+
+Example Orthocal command:
+
+```sh
+orthocal serve --db ./orthodox-calendar.db --addr 127.0.0.1:8080
+```
+
+Example nginx location:
+
+```nginx
+location /orthocal-api/ {
+	proxy_pass http://127.0.0.1:8080/api/;
+	proxy_http_version 1.1;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+The deployment script does not modify nginx. Configure the proxy manually in the existing nginx site config.
 
 ## Deployment
 
