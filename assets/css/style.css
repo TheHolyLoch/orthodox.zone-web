@@ -264,9 +264,10 @@ img {
 }
 
 .page-header {
-	background:
+/*	background:
 		linear-gradient(135deg, rgba(15, 17, 22, 0.98), rgba(36, 50, 74, 0.93), rgba(124, 27, 35, 0.88)),
 		repeating-linear-gradient(135deg, rgba(232, 199, 109, 0.13) 0 1px, transparent 1px 18px);
+*/
 	padding-block: clamp(3rem, 7vw, 5.5rem);
 }
 
