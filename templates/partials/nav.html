@@ -1,0 +1,11 @@
+{{/* Orthodox Zone - Developed by dgm at Holy Loch Media (dgm@tuta.com) */}}
+{{/* orthodox.zone-web/templates/partials/nav.html */}}
+{{define "nav.html"}}
+			<nav class="site-nav" id="primary-nav" aria-label="Primary navigation" data-open="false">
+				<ul>
+{{range .Nav}}
+					<li><a href="{{.Href}}"{{if eq $.Page.Nav .Key}} aria-current="page"{{end}}>{{.Label}}</a></li>
+{{end}}
+				</ul>
+			</nav>
+{{end}}

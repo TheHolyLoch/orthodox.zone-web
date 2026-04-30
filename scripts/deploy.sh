@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# Orthodox Zone - Developed by dgm (dgm@tuta.com)
+# Orthodox Zone - Developed by dgm at Holy Loch Media (dgm@tuta.com)
 # orthodox.zone-web/scripts/deploy.sh
 
 set -euo pipefail
 
 DEPLOY_TARGET="${DEPLOY_TARGET:-/var/www/orthodox.zone/html}"
 MODE="deploy"
-REQUIRED_FILES=(
-	"index.html"
-	"about.html"
-	"connect.html"
-	"orthocal.html"
-	"calendar.html"
-	"resources.html"
-	"saints.html"
-	"contact.html"
+REQUIRED_PATHS=(
+	"go.mod"
+	"cmd/ozbuild/main.go"
+	"internal/site/site.go"
+	"content"
+	"templates"
 	"assets"
+	"scripts/build.sh"
 )
 
 usage() {
@@ -61,9 +59,10 @@ find_repo_root() {
 	search_dir="$(pwd)"
 
 	while [ "$search_dir" != "/" ]; do
-		if [ -f "$search_dir/index.html" ] &&
-			[ -f "$search_dir/assets/css/style.css" ] &&
-			[ -f "$search_dir/assets/js/main.js" ]; then
+		if [ -f "$search_dir/go.mod" ] &&
+			[ -d "$search_dir/content" ] &&
+			[ -d "$search_dir/templates" ] &&
+			[ -f "$search_dir/assets/css/style.css" ]; then
 			printf '%s\n' "$search_dir"
 			return
 		fi
@@ -74,10 +73,16 @@ find_repo_root() {
 	fail "script not run from a valid repo layout"
 }
 
-check_source_files() {
+check_go() {
+	if ! command -v go >/dev/null 2>&1; then
+		fail "missing Go. Install Go before running the build"
+	fi
+}
+
+check_source_paths() {
 	local item
 
-	for item in "${REQUIRED_FILES[@]}"; do
+	for item in "${REQUIRED_PATHS[@]}"; do
 		if [ ! -e "$REPO_ROOT/$item" ]; then
 			fail "missing source file or directory: $item"
 		fi
@@ -99,7 +104,7 @@ has_rsync() {
 }
 
 print_plan() {
-	printf 'source directory: %s\n' "$REPO_ROOT"
+	printf 'source directory: %s\n' "$REPO_ROOT/public"
 	printf 'deploy target: %s\n' "$DEPLOY_TARGET"
 
 	if has_rsync; then
@@ -109,21 +114,16 @@ print_plan() {
 	fi
 }
 
-make_staging_dir() {
-	local item
-	local staging_dir
-
-	staging_dir="$(mktemp -d)"
-
-	for item in "${REQUIRED_FILES[@]}"; do
-		cp -R "$REPO_ROOT/$item" "$staging_dir/"
-	done
-
-	printf '%s\n' "$staging_dir"
+run_build() {
+	(
+		cd "$REPO_ROOT"
+		./scripts/build.sh
+	)
 }
 
 run_check() {
-	check_source_files
+	check_go
+	check_source_paths
 	check_target
 	print_plan
 
@@ -136,65 +136,37 @@ run_check() {
 	printf 'check complete. no files copied.\n'
 }
 
+run_cp_fallback() {
+	if [ "$MODE" = "dry-run" ]; then
+		printf 'rsync unavailable. cp fallback would copy:\n'
+		(
+			cd "$REPO_ROOT/public"
+			find . -maxdepth 3 -type f | sort
+		)
+		printf 'warning: old removed files may remain without rsync.\n'
+		return
+	fi
+
+	printf 'warning: rsync unavailable. old removed files may remain without rsync.\n'
+	cp -R "$REPO_ROOT/public"/. "$DEPLOY_TARGET"/
+}
+
 run_rsync() {
 	local -a dry_run_flag
-	local staging_dir
 
 	dry_run_flag=()
 	if [ "$MODE" = "dry-run" ]; then
 		dry_run_flag=(--dry-run)
 	fi
 
-	staging_dir="$(make_staging_dir)"
-	trap "rm -rf '$staging_dir'" EXIT
-
-	rsync -av --delete "${dry_run_flag[@]}" \
-		--exclude='.git/' \
-		--exclude='.gitignore' \
-		--exclude='README.md' \
-		--exclude='LICENSE' \
-		--exclude='scripts/' \
-		--exclude='AGENTS.md' \
-		--exclude='*.bak' \
-		--exclude='*.tmp' \
-		--exclude='logs/' \
-		--exclude='node_modules/' \
-		--exclude='.DS_Store' \
-		"$staging_dir"/ "$DEPLOY_TARGET"/
-
-	rm -rf "$staging_dir"
-	trap - EXIT
-
-	chown -R www-data:www-data /var/www/orthodox.zone/
-}
-
-run_cp_fallback() {
-	local staging_dir
-
-	staging_dir="$(make_staging_dir)"
-	trap "rm -rf '$staging_dir'" EXIT
-
-	if [ "$MODE" = "dry-run" ]; then
-		printf 'rsync unavailable. cp fallback would copy:\n'
-		(
-			cd "$staging_dir"
-			find . -maxdepth 3 -type f | sort
-		)
-		printf 'warning: old removed files may remain without rsync.\n'
-		rm -rf "$staging_dir"
-		trap - EXIT
-		return
-	fi
-
-	printf 'warning: rsync unavailable. old removed files may remain without rsync.\n'
-	cp -R "$staging_dir"/. "$DEPLOY_TARGET"/
-	rm -rf "$staging_dir"
-	trap - EXIT
+	rsync -av --delete "${dry_run_flag[@]}" "$REPO_ROOT/public"/ "$DEPLOY_TARGET"/
 }
 
 run_deploy() {
-	check_source_files
+	check_go
+	check_source_paths
 	check_target
+	run_build
 	print_plan
 
 	if has_rsync; then

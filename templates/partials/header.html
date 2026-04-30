@@ -1,0 +1,14 @@
+{{/* Orthodox Zone - Developed by dgm at Holy Loch Media (dgm@tuta.com) */}}
+{{/* orthodox.zone-web/templates/partials/header.html */}}
+{{define "header.html"}}
+	<header class="site-header">
+		<div class="nav-wrap">
+			<a class="brand" href="/" aria-label="Orthodox Zone home">
+				<span class="brand-mark" aria-hidden="true">☦</span>
+				<span>ORTHODOX ZONE</span>
+			</a>
+			<button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">Menu</button>
+{{template "nav.html" .}}
+		</div>
+	</header>
+{{end}}

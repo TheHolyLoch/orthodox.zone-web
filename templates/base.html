@@ -1,0 +1,19 @@
+{{/* Orthodox Zone - Developed by dgm at Holy Loch Media (dgm@tuta.com) */}}
+{{/* orthodox.zone-web/templates/base.html */}}
+{{define "base.html"}}
+<!doctype html>
+<html lang="en-GB">
+{{template "head.html" .}}
+<body>
+{{template "header.html" .}}
+	<main>
+{{.Content}}
+	</main>
+{{template "footer.html" .}}
+	<script src="/assets/js/main.js" defer></script>
+{{range .Page.ExtraScripts}}
+	<script src="{{.}}" defer></script>
+{{end}}
+</body>
+</html>
+{{end}}

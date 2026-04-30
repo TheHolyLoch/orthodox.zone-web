@@ -1,0 +1,20 @@
+{{/* Orthodox Zone - Developed by dgm at Holy Loch Media (dgm@tuta.com) */}}
+{{/* orthodox.zone-web/templates/partials/head.html */}}
+{{define "head.html"}}
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="{{.Page.Description}}">
+	<meta property="og:title" content="{{.Page.Title}}">
+	<meta property="og:description" content="{{.Page.Description}}">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="{{if .Page.Canonical}}{{.Page.Canonical}}{{else}}https://orthodox.zone{{.Page.Slug}}{{end}}">
+	<meta property="og:site_name" content="Orthodox Zone">
+	<title>{{.Page.Title}}</title>
+	<link rel="canonical" href="{{if .Page.Canonical}}{{.Page.Canonical}}{{else}}https://orthodox.zone{{.Page.Slug}}{{end}}">
+	<link rel="stylesheet" href="/assets/css/style.css">
+{{range .Page.ExtraCSS}}
+	<link rel="stylesheet" href="{{.}}">
+{{end}}
+</head>
+{{end}}
